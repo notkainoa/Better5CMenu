@@ -123,15 +123,24 @@ function OnboardingFlow() {
       if (!alive) return;
       const handoff = readConsumeHandoff();
       const raw = params[ONBOARDING_QUERY];
+      const normalizedQuery = Array.isArray(raw) ? (raw[0] ?? null) : (raw ?? null);
       const decided = resolveOnboardingEntry({
         done,
         handoff,
-        query: Array.isArray(raw) ? raw[0] : raw,
+        query: normalizedQuery,
         standalone: isStandalone(),
         mobile: isMobileDevice(),
       });
       if (!alive) return;
       const view = entryView(decided);
+      // Scrub the handoff query immediately: the user may add this exact URL
+      // to their Home Screen, and it must be bare `/webapp` so launches
+      // never re-trigger onboarding. Overlay state already lives in memory.
+      // history.replaceState (not router.replace) avoids a navigation cycle;
+      // the URL pin treats bare `/webapp` as canonical and leaves it alone.
+      if ((handoff ?? normalizedQuery) != null && typeof window !== 'undefined') {
+        window.history.replaceState(window.history.state, '', '/webapp');
+      }
       setLikelyInApp(uaLikelyInApp());
       setStep(view.initialStep);
       setResolved(view);
