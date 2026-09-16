@@ -1,6 +1,7 @@
 import { Redirect } from 'expo-router';
 import { Platform } from 'react-native';
 import FrozenHalls from '@/components/FrozenHalls';
+import WebAppOnboardingHost from '@/components/WebAppOnboardingHost';
 import { usePinUrlPath } from '@/lib/pinUrlPath';
 
 /**
@@ -14,5 +15,10 @@ export default function WebApp() {
   if (Platform.OS !== 'web') {
     return <Redirect href="/" />;
   }
-  return <FrozenHalls />;
+  return (
+    <>
+      <FrozenHalls />
+      <WebAppOnboardingHost />
+    </>
+  );
 }

@@ -1,5 +1,21 @@
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
+import { ONBOARDING_QUERY } from '@/lib/webAppOnboarding';
+
+/**
+ * True when `search` is exactly `?onboarding=1` or `?onboarding=2` with no
+ * other params. The onboarding host consumes the query itself, so the pin
+ * must tolerate it until then.
+ */
+function isOnboardingQuery(search: string): boolean {
+  const params = new URLSearchParams(search);
+  const keys = [...params.keys()];
+  return (
+    keys.length === 1 &&
+    keys[0] === ONBOARDING_QUERY &&
+    (params.get(ONBOARDING_QUERY) === '1' || params.get(ONBOARDING_QUERY) === '2')
+  );
+}
 
 /**
  * Pin the web address bar to `target` while it is set. Any in-app
@@ -17,12 +33,13 @@ export function usePinUrlPath(target: string | null) {
     const replace = history.replaceState.bind(history);
 
     const pin = () => {
-      if (
-        window.location.pathname === target &&
-        !window.location.search &&
-        !window.location.hash
-      )
+      if (window.location.pathname !== target) {
+        replace(history.state, '', target);
         return;
+      }
+      if (!window.location.search && !window.location.hash) return;
+      // Tolerate the onboarding handoff query until the host consumes it.
+      if (isOnboardingQuery(window.location.search) && !window.location.hash) return;
       replace(history.state, '', target);
     };
 

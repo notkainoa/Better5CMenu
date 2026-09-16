@@ -1,5 +1,9 @@
 # Web App Onboarding Plan (living doc)
 
+> Status (2026-09-16): v1 implemented on this branch with placeholder
+> screenshot boxes. Remaining: real screenshots + final copy (Steps 1–6),
+> then verify on physical iOS Safari / Chrome.
+
 ## Goal
 Help users install the web app (`/webapp`, the URL-less `FrozenHalls` edition merged in PR #10) to their phone Home Screen via a guided onboarding overlay.
 

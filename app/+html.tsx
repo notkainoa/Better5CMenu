@@ -23,6 +23,14 @@ export default function Root({ children }: { children: ReactNode }) {
         */}
         <meta name="color-scheme" content="only light" />
 
+        {/* PWA installability for the /webapp edition (public/ → dist root). */}
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <meta name="theme-color" content="#000000" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
         {/*
           Disable body scrolling on web. This makes ScrollView components work closer to how they do on native.
           However, body scrolling is often nice to have for mobile web. If you want to enable it, remove this line.

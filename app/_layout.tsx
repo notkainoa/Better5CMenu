@@ -80,6 +80,8 @@ function RootLayoutNav() {
             />
             <Stack.Screen name="home" options={{ headerShown: false }} />
             <Stack.Screen name="webapp" options={{ headerShown: false }} />
+            <Stack.Screen name="webapp/onboarding" options={{ headerShown: false }} />
+            <Stack.Screen name="webapp/onboarding/2" options={{ headerShown: false }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
           </Stack>
           <WebStackHost />
@@ -88,4 +90,3 @@ function RootLayoutNav() {
     </SettingsProvider>
   );
 }
-
