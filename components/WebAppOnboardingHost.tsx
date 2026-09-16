@@ -208,16 +208,13 @@ function OnboardingFlow() {
   const current = subs[Math.min(sub, subs.length - 1)]!;
   const isLastSub = sub >= subs.length - 1;
 
-  // Sticky footer only where the body has no navigation of its own:
-  // browser-check, breakout, and picker navigate via body buttons.
-  const showFooter = step === 'opt-in' || step === 'instructions';
+  // Sticky footer only for the linear instruction flow — every other
+  // step navigates via body buttons.
+  const showFooter = step === 'instructions';
 
-  const footerPrimary =
-    step === 'instructions' && isLastSub
-      ? { label: 'Done', action: onDone }
-      : step === 'instructions'
-        ? { label: 'Next', action: () => setSub(sub + 1) }
-        : { label: 'Next', action: () => setStep('browser-check') };
+  const footerPrimary = isLastSub
+    ? { label: 'Done', action: onDone }
+    : { label: 'Next', action: () => setSub(sub + 1) };
 
   return (
     <View style={styles.cover} role="dialog" accessibilityLabel="Install instructions">
@@ -264,7 +261,7 @@ function OnboardingFlow() {
               accessibilityRole="button"
               style={styles.secondary}
             >
-              <Text style={styles.secondaryText}>No, take me to the app</Text>
+              <Text style={styles.secondaryText}>No. I&apos;ll use it on the web.</Text>
             </Pressable>
           </>
         ) : null}
