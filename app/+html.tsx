@@ -28,6 +28,7 @@ export default function Root({ children }: { children: ReactNode }) {
         <meta name="theme-color" content="#000000" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="5C Dining" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
