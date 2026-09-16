@@ -199,18 +199,16 @@ function OnboardingFlow() {
   const current = subs[Math.min(sub, subs.length - 1)]!;
   const isLastSub = sub >= subs.length - 1;
 
+  // Sticky footer only where the body has no navigation of its own:
+  // browser-check, breakout, and picker navigate via body buttons.
+  const showFooter = step === 'opt-in' || step === 'instructions';
+
   const footerPrimary =
-    step === 'breakout'
-      ? { label: 'Copy link', action: onCopy }
-      : step === 'instructions' && isLastSub
-        ? { label: 'Done', action: onDone }
-        : step === 'instructions'
-          ? { label: 'Next', action: () => setSub(sub + 1) }
-          : step === 'picker'
-            ? { label: 'Next', action: () => {}, disabled: browser === null }
-            : step === 'opt-in'
-              ? { label: 'Next', action: () => setStep('browser-check') }
-              : { label: 'Next', action: () => setStep('picker') };
+    step === 'instructions' && isLastSub
+      ? { label: 'Done', action: onDone }
+      : step === 'instructions'
+        ? { label: 'Next', action: () => setSub(sub + 1) }
+        : { label: 'Next', action: () => setStep('browser-check') };
 
   return (
     <View style={styles.cover} role="dialog" accessibilityLabel="Install instructions">
@@ -323,9 +321,12 @@ function OnboardingFlow() {
             <Pressable
               onPress={() => setStep('picker')}
               accessibilityRole="button"
-              style={styles.secondary}
+              accessibilityLabel={copied ? 'Next' : 'Continue anyway'}
+              style={copied ? styles.primary : styles.secondary}
             >
-              <Text style={styles.secondaryText}>Continue anyway →</Text>
+              <Text style={copied ? styles.primaryText : styles.secondaryText}>
+                {copied ? 'Next →' : 'Continue anyway →'}
+              </Text>
             </Pressable>
           </>
         ) : null}
@@ -364,28 +365,26 @@ function OnboardingFlow() {
         ) : null}
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: Math.max(16, insets.bottom + 12) }]}>
-        <Pressable
-          onPress={stepBack}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          style={styles.back}
-        >
-          <Text style={styles.secondaryText}>Back</Text>
-        </Pressable>
-        <Pressable
-          onPress={footerPrimary.action}
-          accessibilityRole="button"
-          accessibilityLabel={footerPrimary.label}
-          disabled={'disabled' in footerPrimary && footerPrimary.disabled}
-          style={[
-            styles.next,
-            'disabled' in footerPrimary && footerPrimary.disabled && styles.disabled,
-          ]}
-        >
-          <Text style={styles.primaryText}>{footerPrimary.label}</Text>
-        </Pressable>
-      </View>
+      {showFooter ? (
+        <View style={[styles.footer, { paddingBottom: Math.max(16, insets.bottom + 12) }]}>
+          <Pressable
+            onPress={stepBack}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            style={styles.back}
+          >
+            <Text style={styles.secondaryText}>Back</Text>
+          </Pressable>
+          <Pressable
+            onPress={footerPrimary.action}
+            accessibilityRole="button"
+            accessibilityLabel={footerPrimary.label}
+            style={styles.next}
+          >
+            <Text style={styles.primaryText}>{footerPrimary.label}</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
