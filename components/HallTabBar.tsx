@@ -10,7 +10,9 @@ import Animated, {
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
+  withDelay,
   withSpring,
+  withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
 import { Theme } from '@/constants/Theme';
@@ -19,11 +21,13 @@ import {
   CHROME_JOIN_EAR,
   CHROME_RADIUS,
   INNER_CHIP_RADIUS,
+  useFlight,
+  useTopCorners,
 } from '@/components/HallChrome';
 import { HALL_BY_ID, hallChipName, orderedHalls, type DiningHall } from '@/lib/diningHalls';
 import { useDim } from '@/lib/dim';
 import { usePrefs } from '@/lib/settings';
-import { useTabNav } from '@/lib/tabNav';
+import { usePagerProgress, usePrep, useTabNav } from '@/lib/tabNav';
 
 /** Horizontal inset of the hall card below the bar (HallScreen `school` marginHorizontal). */
 const HALL_INSET = CHROME_INSET;
@@ -253,6 +257,76 @@ export default function HallTabBar() {
     [scrollRef],
   );
 
+  // EXP-3 (sync hypothesis test): while the pager moves, the pager owns the
+  // blob's left/right edges so joinery and pages share one timeline. The
+  // chip-spring pour below still owns color + settle. Revert to remove.
+  // progressCtx is null on web (no pager) — the reaction stays idle there.
+  const progressCtx = usePagerProgress();
+  const orderSV = useSharedValue<string[]>([]);
+  useEffect(() => {
+    orderSV.set(halls.map((h) => h.id));
+  }, [halls, orderSV]);
+
+  useAnimatedReaction(
+    () => ({
+      p: progressCtx ? progressCtx.value : -1,
+      order: orderSV.value,
+      lay: layouts.value,
+    }),
+    (cur) => {
+      if (cur.p < 0) return;
+      const n = cur.order.length;
+      if (n === 0) return;
+      const pc = Math.min(n - 1, Math.max(0, cur.p));
+      const i0 = Math.min(n - 1, Math.floor(pc));
+      const f = pc - i0;
+      const a = cur.lay[cur.order[i0]];
+      const b = f > 0 && i0 + 1 < n ? cur.lay[cur.order[i0 + 1]] : a;
+      if (!a || !b) return;
+      const L = a.x + (b.x - a.x) * f;
+      const R = a.x + a.w + (b.x + b.w - (a.x + a.w)) * f;
+      if (Math.abs(L - blobL.value) > 0.05) blobL.set(L);
+      if (Math.abs(R - blobR.value) > 0.05) blobR.set(R);
+    },
+    [state],
+  );
+
+  // EXP-6: true while the pager sits between two pages (swipes and animated
+  // taps). Null progress (web) means never in flight.
+  const inFlight = useDerivedValue(() => {
+    if (!progressCtx) return false;
+    const order = orderSV.value;
+    const n = order.length;
+    if (n < 2) return false;
+    const pc = Math.min(n - 1, Math.max(0, progressCtx.value));
+    // Finger down: first pixel of pager movement counts — no waiting.
+    if (Math.abs(pc - Math.round(pc)) > 0.002) return true;
+    // Tap: chip changed but the pager hasn't arrived yet. Hide before
+    // anything on screen starts moving.
+    const target = order.indexOf(state.activeId.value);
+    if (target >= 0 && Math.abs(target - Math.round(pc)) > 0.5) return true;
+    return false;
+  });
+  // EXP-9: explicit prep (tap intent) forces hiding ahead of motion; the
+  // progress-derived inFlight below is the backstop (swipes, missed clears).
+  const prepCtx = usePrep();
+  const hidden = useDerivedValue(() => (prepCtx ? prepCtx.value : 0) === 1 || inFlight.value);
+  const joineryFadeStyle = useAnimatedStyle(() => ({
+    // EXP-6/9: snap, staged one beat after the card corners snap (those read
+    // flight directly, no delay): corners → gray → motion. Instant back.
+    opacity: hidden.value ? withDelay(16, withTiming(0, { duration: 1 })) : 1,
+  }));
+
+  // EXP-7: publish flight 0/1 for hall pages (top-corner rounding in flight).
+  const flightCtx = useFlight();
+  useAnimatedReaction(
+    () => hidden.value,
+    (flying) => {
+      flightCtx?.set(flying ? 1 : 0);
+    },
+    [state],
+  );
+
   useEffect(() => {
     activeId.set(activeHall);
   }, [activeHall, activeId]);
@@ -405,14 +479,30 @@ export default function HallTabBar() {
     return Math.max(0, CORNER - attachP.value * (CORNER - cornerR(g.dr)));
   });
 
+  // EXP-8: publish live mask radii so hall pages' own top corners match,
+  // including attach morphs.
+  const topCornersCtx = useTopCorners();
+  useAnimatedReaction(
+    () => ({ l: maskL.value, r: maskR.value }),
+    (v) => {
+      topCornersCtx?.l.set(v.l);
+      topCornersCtx?.r.set(v.r);
+    },
+    [state],
+  );
+
   const chrome = dimmed ? DIMMED_CHROME : Theme.darkerGray;
 
   return (
     <View style={styles.wrap}>
-      <CornerMask side="left" radius={maskL} color={chrome} />
-      <CornerMask side="right" radius={maskR} color={chrome} />
-      <GutterEar side="left" state={state} chrome={chrome} />
-      <GutterEar side="right" state={state} chrome={chrome} />
+      {/* EXP-6: corner masks + gutter ears hide while the pager is between
+          pages. The JoinStrip connector below is untouched original behavior. */}
+      <Animated.View pointerEvents="none" style={[styles.joineryWrap, joineryFadeStyle]}>
+        <CornerMask side="left" radius={maskL} color={chrome} />
+        <CornerMask side="right" radius={maskR} color={chrome} />
+        <GutterEar side="left" state={state} chrome={chrome} />
+        <GutterEar side="right" state={state} chrome={chrome} />
+      </Animated.View>
       <JoinStrip state={state} chrome={chrome} />
       <Animated.ScrollView
         ref={scrollRef}
@@ -643,6 +733,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     paddingTop: 8,
     zIndex: 10,
+    overflow: 'visible',
+  },
+  joineryWrap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     overflow: 'visible',
   },
   overlay: {

@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useSegments } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import NativePager, { type NativePagerHandle } from '@/components/NativePager';
+import { useSharedValue } from 'react-native-reanimated';
 import DiningTabBar from '@/components/DiningTabBar';
 import HallTabBar from '@/components/HallTabBar';
 import { AppShell, HallChrome } from '@/components/HallChrome';
@@ -42,10 +43,7 @@ function TabLayoutNative() {
   const { loaded, hallOrder } = usePrefs();
   const pagerRef = useRef<NativePagerHandle>(null);
 
-  const order: string[] = useMemo(
-    () => orderedHalls(hallOrder).map((h) => h.id),
-    [hallOrder],
-  );
+  const order: string[] = useMemo(() => orderedHalls(hallOrder).map((h) => h.id), [hallOrder]);
 
   const [initialKey] = useState(() => {
     const name = segments.at(1) ?? '';
@@ -53,24 +51,38 @@ function TabLayoutNative() {
   });
   const [activeKey, setActiveKey] = useState(initialKey);
   const activeKeyRef = useRef(activeKey);
-  activeKeyRef.current = activeKey;
+  // EXP-3: float page index owned by the pager, read by the tab bar.
+  const progress = useSharedValue(Math.max(0, order.indexOf(initialKey)));
+  // EXP-9: explicit prep flag, set synchronously in navigate() ahead of the
+  // native animation. SharedValue write applies UI-side before the pager
+  // moves over the bridge.
+  const prep = useSharedValue(0);
+
+  useEffect(() => {
+    activeKeyRef.current = activeKey;
+  }, [activeKey]);
 
   const handlePageSelected = useCallback(
     (i: number) => {
+      prep.set(0); // EXP-9: settle clears prep; motion is done.
       setActiveKey(order[i] ?? '');
     },
-    [order],
+    [order, prep],
   );
 
   const navigate = useCallback(
     (name: string) => {
+      if (name === activeKeyRef.current) return;
       const i = order.indexOf(name);
       if (i >= 0) {
+        // EXP-9: prep (round tops, hide joinery) runs in the same tick as the
+        // press — strictly before pagerRef.setPage() starts motion.
+        prep.set(1);
         setActiveKey(name);
         pagerRef.current?.setPage(i);
       }
     },
-    [order],
+    [order, prep],
   );
 
   const pages = useMemo(
@@ -97,15 +109,15 @@ function TabLayoutNative() {
   useEffect(() => {
     // Only when hall order changes. Including activeKey here would snap the
     // pager on every chip tap and cancel the swipe animation.
-    pagerRef.current?.setPageWithoutAnimation(
-      Math.max(0, order.indexOf(activeKeyRef.current)),
-    );
-  }, [order]);
+    const i = Math.max(0, order.indexOf(activeKeyRef.current));
+    pagerRef.current?.setPageWithoutAnimation(i);
+    progress.set(i); // EXP-3: keep progress on the same page as the pager.
+  }, [order, progress]);
 
   if (!loaded) return <View style={[styles.fill, styles.boot]} />;
 
   return (
-    <TabNavProvider activeKey={activeKey} navigate={navigate}>
+    <TabNavProvider activeKey={activeKey} navigate={navigate} progress={progress} prep={prep}>
       <AppShell>
         <StatusBar style="light" />
         <HallChrome>
@@ -114,6 +126,9 @@ function TabLayoutNative() {
             ref={pagerRef}
             initialPage={Math.max(0, order.indexOf(initialKey))}
             onPageSelected={handlePageSelected}
+            onPageScroll={(e) => {
+              progress.set(e.position + e.offset); // EXP-3
+            }}
           >
             {pages}
           </NativePager>

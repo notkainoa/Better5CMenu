@@ -2,12 +2,18 @@
   "expo": {
     "name": "5C Dining",
     "slug": "5c-dining",
+    "scheme": "dining5c",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "me.kainoa.dining5c",
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -37,6 +43,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "bce2bc76-a2f3-4724-a9b3-c49463e85660"
+      }
+    },
+    "owner": "kainoa"
   }
 }

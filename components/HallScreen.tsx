@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import {
   isGlutenFree,
   matchesDiet,
@@ -21,7 +22,13 @@ import {
   type Meal,
   type MenuItem,
 } from '@/lib/api';
-import { SCHOOL_RADIUS, nestedRadius, useHallBottomJoin } from '@/components/HallChrome';
+import {
+  SCHOOL_RADIUS,
+  nestedRadius,
+  useFlight,
+  useHallBottomJoin,
+  useTopCorners,
+} from '@/components/HallChrome';
 import { Theme } from '@/constants/Theme';
 import { mealKey, useDay } from '@/lib/day';
 import { closureLabel, getClosure, type HallClosure } from '@/lib/closures';
@@ -41,6 +48,20 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
   const { arm, disarm } = useDim();
   const { join } = useHallBottomJoin();
   const { expandAllDefault } = usePrefs();
+
+  // EXP-8: top corners copy the live CornerMask radii, so the page's own
+  // corners agree with the overlay joinery, including attach morphs.
+  // 0 at rest (original look). Revert to remove.
+  const flightCtx = useFlight();
+  const topCornersCtx = useTopCorners();
+  // EXP-7/9: instant snap. flight is 0/1, so corners are either 0 or the
+  // live mask radii — set the same tick as intent, ahead of motion.
+  const topStyle = useAnimatedStyle(() => ({
+    borderTopLeftRadius:
+      (flightCtx ? flightCtx.value : 0) * (topCornersCtx ? topCornersCtx.l.value : 0),
+    borderTopRightRadius:
+      (flightCtx ? flightCtx.value : 0) * (topCornersCtx ? topCornersCtx.r.value : 0),
+  }));
 
   const [menu, setMenu] = useState<HallMenu | null>(null);
   const [closure, setClosure] = useState<HallClosure | null>(null);
@@ -67,18 +88,15 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
     return autoIndex;
   }, [meals, mealName, autoIndex]);
 
-  const expandAllRef = useRef(expandAllDefault);
-  expandAllRef.current = expandAllDefault;
   const stationCount = meals[mealIndex]?.stations.length ?? 0;
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset open stations for a new menu
+    // Reset the station expansion state when the visible menu changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOpenStations(
-      expandAllRef.current && stationCount > 0
-        ? Array.from({ length: stationCount }, (_, i) => i)
-        : [],
+      expandAllDefault && stationCount > 0 ? Array.from({ length: stationCount }, (_, i) => i) : [],
     );
-  }, [hallId, date, mealIndex, stationCount]);
+  }, [hallId, date, mealIndex, stationCount, expandAllDefault]);
 
   const load = useCallback(
     async (force = false) => {
@@ -144,7 +162,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
       {picker ? (
         <Pressable style={styles.pageOverlay} onPress={closePicker} accessibilityLabel="Dismiss" />
       ) : null}
-      <View
+      <Animated.View
         style={[
           styles.school,
           {
@@ -153,6 +171,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
             borderBottomRightRadius: nestedRadius(join.br),
           },
           picker ? styles.schoolFront : null,
+          topStyle,
         ]}
       >
         {picker ? (
@@ -275,7 +294,7 @@ export default function HallScreen({ hallId }: { hallId: HallId }) {
             <View style={{ height: 16 }} />
           </ScrollView>
         </View>
-      </View>
+      </Animated.View>
     </View>
   );
 }
